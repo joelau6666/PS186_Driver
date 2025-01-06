@@ -65,9 +65,9 @@ static int8_t ps186_init(struct ps186_dev *i_pdev){
         return -1;
     }
 
-    /* PinMode */
-    i_pdev->ops->PinMode(&i_pdev->info->pinrst);
-    i_pdev->ops->PinMode(&i_pdev->info->pinlanemode);
+    /* PinMode Output */
+    i_pdev->ops->PinModeOut(&i_pdev->info->pinrst);
+    i_pdev->ops->PinModeOut(&i_pdev->info->pinlanemode);
 
     /* Init PinValue */
     i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.initvalue);

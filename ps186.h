@@ -21,7 +21,6 @@
 struct gpio_param{
     uint32_t gpio_group;
     uint32_t gpio_pin;
-    uint32_t mode;
     uint8_t initvalue;
     uint8_t runvalue;
 };
@@ -39,7 +38,7 @@ struct ps186_dev_info{
 };
 
 struct ps186_dev_ops{
-    int8_t (*PinMode)(struct gpio_param *gpio);
+    int8_t (*PinModeOut)(struct gpio_param *gpio);
     int8_t (*PinWrite)(struct gpio_param *gpio, uint8_t value);
     int8_t (*I2CWrite)(uint32_t i2c_periph, uint16_t salve_addr, uint8_t *pbuffer, uint16_t len);
     int8_t (*I2CRead)(uint32_t i2c_periph, uint16_t salve_addr, uint8_t *pbuffer, uint16_t len);
