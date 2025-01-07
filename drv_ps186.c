@@ -39,12 +39,16 @@ static int8_t ps186_i2c_xfer(struct ps186_dev *i_pdev, struct i2c_msg msgs[], ui
         // }
 
         if (msg->flags & I2C_READ_FLAG){
-            if(0 != i_pdev->ops->I2CRead(i2c->i2c_periph, msg->device_addr, msg->buf, msg->len)){
-                goto out;
+            if(i_pdev->ops->I2CRead){
+                if(0 != i_pdev->ops->I2CRead(i2c->i2c_periph, msg->device_addr, msg->buf, msg->len)){
+                    goto out;
+                }
             }
         }else{
-            if(0 != i_pdev->ops->I2CWrite(i2c->i2c_periph, msg->device_addr, msg->buf, msg->len)){
-                goto out;
+            if(i_pdev->ops->I2CWrite){
+                if(0 != i_pdev->ops->I2CWrite(i2c->i2c_periph, msg->device_addr, msg->buf, msg->len)){
+                    goto out;
+                }
             }
         }
     }
@@ -66,12 +70,16 @@ static int8_t ps186_init(struct ps186_dev *i_pdev){
     }
 
     /* PinMode Output */
-    i_pdev->ops->PinModeOut(&i_pdev->info->pinrst);
-    i_pdev->ops->PinModeOut(&i_pdev->info->pinlanemode);
+    if(i_pdev->ops->PinModeOut){
+        i_pdev->ops->PinModeOut(&i_pdev->info->pinrst);
+        i_pdev->ops->PinModeOut(&i_pdev->info->pinlanemode);
+    }
 
     /* Init PinValue */
-    i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.initvalue);
-    i_pdev->ops->PinWrite(&i_pdev->info->pinlanemode, i_pdev->info->pinlanemode.initvalue);
+    if(i_pdev->ops->PinWrite){
+        i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.initvalue);
+        i_pdev->ops->PinWrite(&i_pdev->info->pinlanemode, i_pdev->info->pinlanemode.initvalue);
+    }
 
     return 0;
 }
@@ -112,8 +120,10 @@ int8_t ps186_open(struct ps186_dev *i_pdev){
         return -1;
     }
 
-    i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.runvalue);
-    i_pdev->ops->PinWrite(&i_pdev->info->pinlanemode, i_pdev->info->pinlanemode.runvalue);
+    if(i_pdev->ops->PinWrite){
+        i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.runvalue);
+        i_pdev->ops->PinWrite(&i_pdev->info->pinlanemode, i_pdev->info->pinlanemode.runvalue);
+    }
 
     i_pdev->isopen = 1;
 
@@ -130,8 +140,10 @@ int8_t ps186_close(struct ps186_dev *i_pdev){
         return -1;
     }
 
-    i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.initvalue);
-    i_pdev->ops->PinWrite(&i_pdev->info->pinlanemode, i_pdev->info->pinlanemode.initvalue);
+    if(i_pdev->ops->PinWrite){
+        i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.initvalue);
+        i_pdev->ops->PinWrite(&i_pdev->info->pinlanemode, i_pdev->info->pinlanemode.initvalue);
+    }
 
     i_pdev->isopen = 0;
 
