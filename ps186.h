@@ -28,7 +28,6 @@ struct gpio_param{
 
 struct i2c_param{
     uint32_t i2c_periph;
-    uint16_t i2c_addr;
 };
 
 
