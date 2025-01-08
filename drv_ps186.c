@@ -5,6 +5,9 @@
 #define I2C_WRITE_FLAG   0x0000
 #define I2C_READ_FLAG    0x0001
 
+#define PS186_PAGE0      0x08
+#define PS186_PAGE1      0x09
+
 
 struct i2c_msg
 {
@@ -59,6 +62,52 @@ out:
 //    LOG_E("send stop condition\n");
 
     return ret;
+}
+
+
+static int8_t ps186_get_dp_linkrate(struct ps186_dev *i_pdev, float *o_pLinkRate){
+    if(!i_pdev || !i_pdev->info || !i_pdev->ops || !o_pLinkRate){
+        return -1;
+    }
+
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+#endif
+
+    uint8_t read_buffer[256] = {0};
+    uint8_t write_buffer[256] = {0};
+    struct i2c_msg msg[512] = {0};
+
+    for(uint16_t i = 0; i < 512; i+=2){
+        write_buffer[i/2] = i/2;
+        msg[i].device_addr = PS186_PAGE1;
+        msg[i].flags = I2C_WRITE_FLAG;
+        msg[i].len = 1;
+        msg[i].buf = &write_buffer[i/2];
+
+        msg[i + 1].device_addr = PS186_PAGE1;
+        msg[i + 1].flags = I2C_READ_FLAG;
+        msg[i + 1].len = 1;
+        msg[i + 1].buf = &read_buffer[i/2];
+    }
+
+    ps186_i2c_xfer(i_pdev, msg, 512);
+
+    for(uint16_t i = 0; i < 256; i++){
+        printf("%02x ", read_buffer[i]);
+        if((i + 1) % 16 == 0){
+            printf("\r\n");
+        }
+    }
+
+    *o_pLinkRate = read_buffer[32] * 0.27;
+
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
+
+
+    return 0;
 }
 
 
@@ -188,7 +237,8 @@ int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
 
     switch(cmd){
         case PS186_CMD_GET_DP_LINK_STATUS:{
-            
+            ps186_get_dp_linkrate(i_pdev, arg);
+            break;
         }
 
         default:{
