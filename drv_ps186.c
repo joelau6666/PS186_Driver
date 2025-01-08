@@ -95,6 +95,13 @@ int8_t ps186_register(struct ps186_dev *i_pDev, char *i_pName){
         return -1;
     }
 
+#if IS_WITH_OS
+    i_pDev->mutex = i_pDev->mutex_ops->mutex_create();
+    if(!i_pDev->mutex){
+        return -1;
+    }
+#endif
+
     if(-1 == dev_ps186_add(i_pDev)){
         return -1;
     }
@@ -116,7 +123,14 @@ int8_t ps186_open(struct ps186_dev *i_pdev){
         return -1;
     }
 
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+#endif
+
     if(i_pdev->isopen){
+#if IS_WITH_OS
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
         return -1;
     }
 
@@ -127,6 +141,10 @@ int8_t ps186_open(struct ps186_dev *i_pdev){
 
     i_pdev->isopen = 1;
 
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
+
     return 0;
 }
 
@@ -136,7 +154,14 @@ int8_t ps186_close(struct ps186_dev *i_pdev){
         return -1;
     }
 
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+#endif
+
     if(!i_pdev->isopen){
+#if IS_WITH_OS
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
         return -1;
     }
 
@@ -146,6 +171,10 @@ int8_t ps186_close(struct ps186_dev *i_pdev){
     }
 
     i_pdev->isopen = 0;
+
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
 
     return 0;
 }

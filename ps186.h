@@ -5,6 +5,7 @@
 
 #define PS186_NAME_MAX      16
 
+#define IS_WITH_OS          1
 
 
 #ifndef PIN_LOW
@@ -44,10 +45,22 @@ struct ps186_dev_ops{
     int8_t (*I2CRead)(uint32_t i2c_periph, uint16_t salve_addr, uint8_t *pbuffer, uint16_t len);
 };
 
+#if IS_WITH_OS
+struct ps186_mutex_ops{
+    void *(*mutex_create)(void);
+    int8_t (*mutex_lock)(void *mutex);
+    int8_t (*mutex_unlock)(void *mutex);
+};
+#endif
+
 struct ps186_dev{
     char name[PS186_NAME_MAX];
     struct ps186_dev_info *info;
     struct ps186_dev_ops *ops;
+#if IS_WITH_OS
+    void *mutex;
+    struct ps186_mutex_ops *mutex_ops;
+#endif
     struct ps186_dev *next;
     uint8_t isopen;
 };
