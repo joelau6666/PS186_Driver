@@ -5,8 +5,19 @@
 #define I2C_WRITE_FLAG   0x0000
 #define I2C_READ_FLAG    0x0001
 
-#define PS186_PAGE0      0x08
-#define PS186_PAGE1      0x09
+
+#define DP_LINK_RATE_INDEX    32
+#define DP_LANE_NUM_INDEX     33
+
+
+
+enum PS186_PAGE{
+    PS186_PAGE0 = 0x08,
+    PS186_PAGE1 = 0x09,
+};
+
+
+
 
 
 struct i2c_msg
@@ -74,33 +85,23 @@ static int8_t ps186_get_dp_linkrate(struct ps186_dev *i_pdev, float *o_pLinkRate
     i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
 #endif
 
-    uint8_t read_buffer[256] = {0};
-    uint8_t write_buffer[256] = {0};
-    struct i2c_msg msg[512] = {0};
+    const uint8_t u8LinkRateIndex = DP_LINK_RATE_INDEX;
+    uint8_t u8ReadBuf = 0;
 
-    for(uint16_t i = 0; i < 512; i+=2){
-        write_buffer[i/2] = i/2;
-        msg[i].device_addr = PS186_PAGE1;
-        msg[i].flags = I2C_WRITE_FLAG;
-        msg[i].len = 1;
-        msg[i].buf = &write_buffer[i/2];
+    struct i2c_msg tmsg[2] = {0};
+    tmsg[0].device_addr = PS186_PAGE1;
+    tmsg[0].flags = I2C_WRITE_FLAG;
+    tmsg[0].len = 1;
+    tmsg[0].buf = (uint8_t *)&u8LinkRateIndex;
 
-        msg[i + 1].device_addr = PS186_PAGE1;
-        msg[i + 1].flags = I2C_READ_FLAG;
-        msg[i + 1].len = 1;
-        msg[i + 1].buf = &read_buffer[i/2];
-    }
+    tmsg[1].device_addr = PS186_PAGE1;
+    tmsg[1].flags = I2C_READ_FLAG;
+    tmsg[1].len = 1;
+    tmsg[1].buf = &u8ReadBuf;
 
-    ps186_i2c_xfer(i_pdev, msg, 512);
+    ps186_i2c_xfer(i_pdev, tmsg, sizeof(tmsg)/sizeof(struct i2c_msg));
 
-    for(uint16_t i = 0; i < 256; i++){
-        printf("%02x ", read_buffer[i]);
-        if((i + 1) % 16 == 0){
-            printf("\r\n");
-        }
-    }
-
-    *o_pLinkRate = read_buffer[32] * 0.27;
+    *o_pLinkRate = u8ReadBuf * 0.27;
 
 #if IS_WITH_OS
     i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
@@ -119,33 +120,22 @@ static int8_t ps186_get_dp_linenum(struct ps186_dev *i_pdev, uint8_t *o_u8LaneNu
     i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
 #endif
 
-    uint8_t read_buffer[256] = {0};
-    uint8_t write_buffer[256] = {0};
-    struct i2c_msg msg[512] = {0};
+    const uint8_t u8LaneNumIndex = DP_LANE_NUM_INDEX;
+    uint8_t u8ReadBuf = 0;
 
-    for(uint16_t i = 0; i < 512; i+=2){
-        write_buffer[i/2] = i/2;
-        msg[i].device_addr = PS186_PAGE1;
-        msg[i].flags = I2C_WRITE_FLAG;
-        msg[i].len = 1;
-        msg[i].buf = &write_buffer[i/2];
+    struct i2c_msg tmsg[2] = {0};
+    tmsg[0].device_addr = PS186_PAGE1;
+    tmsg[0].flags = I2C_WRITE_FLAG;
+    tmsg[0].len = 1;
+    tmsg[0].buf = (uint8_t *)&u8LaneNumIndex;
 
-        msg[i + 1].device_addr = PS186_PAGE1;
-        msg[i + 1].flags = I2C_READ_FLAG;
-        msg[i + 1].len = 1;
-        msg[i + 1].buf = &read_buffer[i/2];
-    }
+    tmsg[1].device_addr = PS186_PAGE1;
+    tmsg[1].flags = I2C_READ_FLAG;
+    tmsg[1].len = 1;
+    tmsg[1].buf = &u8ReadBuf;
 
-    ps186_i2c_xfer(i_pdev, msg, 512);
-
-    for(uint16_t i = 0; i < 256; i++){
-        printf("%02x ", read_buffer[i]);
-        if((i + 1) % 16 == 0){
-            printf("\r\n");
-        }
-    }
-
-    *o_u8LaneNums = read_buffer[33] & 0x0F;
+    ps186_i2c_xfer(i_pdev, tmsg, sizeof(tmsg)/sizeof(struct i2c_msg));
+    *o_u8LaneNums = u8ReadBuf & 0x0F;
 
 #if IS_WITH_OS
     i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
