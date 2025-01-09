@@ -6,15 +6,20 @@
 #define I2C_READ_FLAG    0x0001
 
 
-#define DP_LINK_RATE_INDEX    32
-#define DP_LANE_NUM_INDEX     33
+#define DP_LINK_RATE_INDEX    0x20
+#define DP_LANE_NUM_INDEX     0x21
+#define DP_HPD_INDEX          0xA1
 
 
+#define DP_HPD_LOW(VALUE)            (VALUE & ~(1 << 7))
+#define DP_HPD_HIGH(VALUE)           (VALUE | (1 << 7))
 
 enum PS186_PAGE{
     PS186_PAGE0 = 0x08,
     PS186_PAGE1 = 0x09,
+    PS186_PAGE2 = 0x0A,
 };
+
 
 
 
@@ -142,6 +147,54 @@ static int8_t ps186_get_dp_linenum(struct ps186_dev *i_pdev, uint8_t *o_u8LaneNu
 #endif
     
     
+    return 0;
+}
+
+static int8_t ps186_set_dphpd(struct ps186_dev *i_pdev, uint8_t *i_u8Hpd){
+    if(!i_pdev || !i_pdev->info || !i_pdev->ops || !i_u8Hpd){
+        return -1;
+    }
+
+#if IS_WITH_OS
+     i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+#endif
+
+    uint8_t u8WriteBuf = DP_HPD_INDEX;
+    uint8_t u8ReadBuf = 0;
+
+    struct i2c_msg treadmsg[2] = {0};
+    treadmsg[0].device_addr = PS186_PAGE2;
+    treadmsg[0].flags = I2C_WRITE_FLAG;
+    treadmsg[0].len = 1;
+    treadmsg[0].buf = (uint8_t *)&u8WriteBuf;
+
+    treadmsg[1].device_addr = PS186_PAGE2;
+    treadmsg[1].flags = I2C_READ_FLAG;
+    treadmsg[1].len = 1;
+    treadmsg[1].buf = &u8ReadBuf;
+
+    ps186_i2c_xfer(i_pdev, treadmsg, sizeof(treadmsg)/sizeof(struct i2c_msg));
+
+    uint8_t u8WriteHpdBuf[2] = {DP_HPD_INDEX, 0};
+
+    if(0 == (*i_u8Hpd)){
+        u8WriteHpdBuf[1] = DP_HPD_LOW(u8ReadBuf);
+    }else{
+        u8WriteHpdBuf[1] = DP_HPD_HIGH(u8ReadBuf);
+    }
+
+    struct i2c_msg twritemsg = {0};
+    twritemsg.device_addr = PS186_PAGE2;
+    twritemsg.flags = I2C_WRITE_FLAG;
+    twritemsg.len = 2;
+    twritemsg.buf = u8WriteHpdBuf;
+
+    ps186_i2c_xfer(i_pdev, &twritemsg, sizeof(twritemsg));
+
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
+
     return 0;
 }
 
@@ -279,6 +332,11 @@ int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
 
         case PS186_CMD_GET_DP_LINE_NUMS:{
             ps186_get_dp_linenum(i_pdev, arg);
+            break;
+        }
+
+        case PS186_CMD_SET_DP_HPD:{
+            ps186_set_dphpd(i_pdev, arg);
             break;
         }
 
