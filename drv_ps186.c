@@ -6,9 +6,10 @@
 #define I2C_READ_FLAG    0x0001
 
 
-#define DP_LINK_RATE_INDEX    0x20
-#define DP_LANE_NUM_INDEX     0x21
-#define DP_HPD_INDEX          0xA1
+#define REG_DP_LINK_RATE_INDEX    0x20
+#define REG_DP_LANE_NUM_INDEX     0x21
+#define REG_DP_HPD_INDEX          0xA1
+#define REG_DP_VERSION_INDEX      0x00
 
 
 #define DP_HPD_LOW(VALUE)            (VALUE & ~(1 << 7))
@@ -18,6 +19,11 @@ enum PS186_PAGE{
     PS186_PAGE0 = 0x08,
     PS186_PAGE1 = 0x09,
     PS186_PAGE2 = 0x0A,
+    PS186_PAGE3 = 0x0B,
+    PS186_PAGE4 = 0x0C,
+    PS186_PAGE5 = 0x0D,
+    PS186_PAGE6 = 0x0E,
+    PS186_PAGE7 = 0x0F,
 };
 
 
@@ -90,7 +96,7 @@ static int8_t ps186_get_dp_linkrate(struct ps186_dev *i_pdev, float *o_pLinkRate
     i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
 #endif
 
-    const uint8_t u8LinkRateIndex = DP_LINK_RATE_INDEX;
+    const uint8_t u8LinkRateIndex = REG_DP_LINK_RATE_INDEX;
     uint8_t u8ReadBuf = 0;
 
     struct i2c_msg tmsg[2] = {0};
@@ -125,7 +131,7 @@ static int8_t ps186_get_dp_linenum(struct ps186_dev *i_pdev, uint8_t *o_u8LaneNu
     i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
 #endif
 
-    const uint8_t u8LaneNumIndex = DP_LANE_NUM_INDEX;
+    const uint8_t u8LaneNumIndex = REG_DP_LANE_NUM_INDEX;
     uint8_t u8ReadBuf = 0;
 
     struct i2c_msg tmsg[2] = {0};
@@ -159,7 +165,7 @@ static int8_t ps186_set_dphpd(struct ps186_dev *i_pdev, uint8_t *i_u8Hpd){
      i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
 #endif
 
-    uint8_t u8WriteBuf = DP_HPD_INDEX;
+    uint8_t u8WriteBuf = REG_DP_HPD_INDEX;
     uint8_t u8ReadBuf = 0;
 
     struct i2c_msg treadmsg[2] = {0};
@@ -175,7 +181,7 @@ static int8_t ps186_set_dphpd(struct ps186_dev *i_pdev, uint8_t *i_u8Hpd){
 
     ps186_i2c_xfer(i_pdev, treadmsg, sizeof(treadmsg)/sizeof(struct i2c_msg));
 
-    uint8_t u8WriteHpdBuf[2] = {DP_HPD_INDEX, 0};
+    uint8_t u8WriteHpdBuf[2] = {REG_DP_HPD_INDEX, 0};
 
     if(0 == (*i_u8Hpd)){
         u8WriteHpdBuf[1] = DP_HPD_LOW(u8ReadBuf);
@@ -190,6 +196,52 @@ static int8_t ps186_set_dphpd(struct ps186_dev *i_pdev, uint8_t *i_u8Hpd){
     twritemsg.buf = u8WriteHpdBuf;
 
     ps186_i2c_xfer(i_pdev, &twritemsg, sizeof(twritemsg));
+
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
+
+    return 0;
+}
+
+static int8_t ps186_get_version(struct ps186_dev *i_pdev, uint32_t *o_u32Version){
+    if(!i_pdev || !i_pdev->info || !i_pdev->ops || !o_u32Version){
+        return -1;
+    }
+
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+#endif
+
+    struct i2c_msg tmsg[4] = {0};
+    const uint8_t write_buffer_0[2] = {0x8e, 0x50};
+    const uint8_t write_buffer_1[2] = {0x8f, 0x01};
+    uint8_t writereg0 = REG_DP_VERSION_INDEX;
+    uint8_t read_buffer[3] = {0};
+
+    tmsg[0].device_addr = PS186_PAGE2;
+    tmsg[0].flags = I2C_WRITE_FLAG;
+    tmsg[0].len = 2;
+    tmsg[0].buf = (uint8_t *)write_buffer_0;
+
+    tmsg[1].device_addr = PS186_PAGE2;
+    tmsg[1].flags = I2C_WRITE_FLAG;
+    tmsg[1].len = 2;
+    tmsg[1].buf = (uint8_t *)write_buffer_1;
+
+    tmsg[2].device_addr = PS186_PAGE7;
+    tmsg[2].flags = I2C_WRITE_FLAG;
+    tmsg[2].len = 1;
+    tmsg[2].buf = (uint8_t *)&writereg0;
+
+    tmsg[3].device_addr = PS186_PAGE7;
+    tmsg[3].flags = I2C_READ_FLAG;
+    tmsg[3].len = 3;
+    tmsg[3].buf = read_buffer;
+
+    ps186_i2c_xfer(i_pdev, tmsg, sizeof(tmsg)/sizeof(struct i2c_msg));
+
+    *o_u32Version = (read_buffer[0] << 24) | (read_buffer[1] << 16) | (read_buffer[2] << 8);
 
 #if IS_WITH_OS
     i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
@@ -337,6 +389,11 @@ int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
 
         case PS186_CMD_SET_DP_HPD:{
             ps186_set_dphpd(i_pdev, arg);
+            break;
+        }
+
+        case PS186_CMD_GET_VERSION:{
+            ps186_get_version(i_pdev, arg);
             break;
         }
 

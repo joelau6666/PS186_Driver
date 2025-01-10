@@ -20,6 +20,7 @@
 #define PS186_CMD_GET_DP_LINK_STATUS        0x0000
 #define PS186_CMD_GET_DP_LINE_NUMS          0x0001
 #define PS186_CMD_SET_DP_HPD                0x0002
+#define PS186_CMD_GET_VERSION               0x0003
 
 struct gpio_param{
     uint32_t gpio_group;
