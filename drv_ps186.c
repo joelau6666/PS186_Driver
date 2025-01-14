@@ -195,7 +195,7 @@ static int8_t ps186_set_dphpd(struct ps186_dev *i_pdev, uint8_t *i_u8Hpd){
     twritemsg.len = 2;
     twritemsg.buf = u8WriteHpdBuf;
 
-    ps186_i2c_xfer(i_pdev, &twritemsg, sizeof(twritemsg));
+    ps186_i2c_xfer(i_pdev, &twritemsg, sizeof(twritemsg)/sizeof(struct i2c_msg));
 
 #if IS_WITH_OS
     i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
