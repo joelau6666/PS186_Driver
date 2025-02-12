@@ -20,7 +20,8 @@
 #define PS186_CMD_GET_DP_LINK_STATUS        0x0000
 #define PS186_CMD_GET_DP_LINE_NUMS          0x0001
 #define PS186_CMD_SET_DP_HPD                0x0002
-#define PS186_CMD_GET_VERSION               0x0003
+#define PS186_CMD_SET_DP_DSC                0x0003
+#define PS186_CMD_GET_VERSION               0x0004
 
 struct gpio_param{
     uint32_t gpio_group;
@@ -45,6 +46,7 @@ struct ps186_dev_ops{
     int8_t (*PinWrite)(struct gpio_param *gpio, uint8_t value);
     int8_t (*I2CWrite)(uint32_t i2c_periph, uint16_t salve_addr, uint8_t *pbuffer, uint16_t len);
     int8_t (*I2CRead)(uint32_t i2c_periph, uint16_t salve_addr, uint8_t *pbuffer, uint16_t len);
+    void (*Delay_ms)(uint32_t ms);
 };
 
 #if IS_WITH_OS

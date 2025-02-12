@@ -6,10 +6,21 @@
 #define I2C_READ_FLAG    0x0001
 
 
-#define REG_DP_LINK_RATE_INDEX    0x20
-#define REG_DP_LANE_NUM_INDEX     0x21
-#define REG_DP_HPD_INDEX          0xA1
-#define REG_DP_VERSION_INDEX      0x00
+#define REG_DP_LINK_RATE_INDEX    		0x20
+#define REG_DP_LANE_NUM_INDEX     		0x21
+#define REG_DP_HPD_INDEX          		0xA1
+#define REG_DP_VERSION_INDEX      		0x00
+#define REG_DP_FW_SET_RUNNING_INDEX     0x02
+#define REG_DP_DSC_CONTROL_INDEX        0xFE
+
+#define REG_DP_FW_DISABLE               0x05
+#define REG_DP_FW_ENABLE                0x02
+
+#define REG_DP_DSC_DISABLE              0x00
+#define REG_DP_DSC_ENABLE               0x01
+
+
+
 
 
 #define DP_HPD_LOW(VALUE)            (VALUE & ~(1 << 7))
@@ -250,6 +261,96 @@ static int8_t ps186_get_version(struct ps186_dev *i_pdev, uint32_t *o_u32Version
     return 0;
 }
 
+static int8_t ps186_set_dpdsc(struct ps186_dev *i_pdev, uint8_t *i_u8IsEnable){
+    if(!i_pdev || !i_pdev->ops || !i_u8IsEnable){
+        return -1;
+    }
+
+#if IS_WITH_OS
+    if(!i_pdev->mutex || !i_pdev->mutex_ops){
+        return -1;
+    }
+    i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+#endif
+
+    int8_t ret = -1;
+    struct i2c_msg tWriteMsg = {0};
+
+    const uint8_t aStopFw[2] = {REG_DP_FW_SET_RUNNING_INDEX, REG_DP_FW_DISABLE};
+    tWriteMsg.device_addr = PS186_PAGE5;
+    tWriteMsg.flags = I2C_WRITE_FLAG;
+    tWriteMsg.len = 2;
+    tWriteMsg.buf = (uint8_t *)aStopFw;
+
+    ret = ps186_i2c_xfer(i_pdev, &tWriteMsg, sizeof(tWriteMsg)/sizeof(struct i2c_msg));
+    if(-1 == ret){
+        goto ERR_RET;
+    }
+
+    if(i_pdev->ops->Delay_ms){
+        i_pdev->ops->Delay_ms(1000);
+    }
+
+    const uint8_t aWriteBuf[2] = {0xFD, 0x70};
+    tWriteMsg.device_addr = PS186_PAGE1;
+    tWriteMsg.flags = I2C_WRITE_FLAG;
+    tWriteMsg.len = 2;
+    tWriteMsg.buf = (uint8_t *)aWriteBuf;
+    
+    ret = ps186_i2c_xfer(i_pdev, &tWriteMsg, sizeof(tWriteMsg)/sizeof(struct i2c_msg));
+    if(-1 == ret){
+        goto ERR_RET;
+    }
+
+    if(i_pdev->ops->Delay_ms){
+        i_pdev->ops->Delay_ms(1000);
+    }
+
+
+    uint8_t aDSCControl[2] = {REG_DP_DSC_CONTROL_INDEX, REG_DP_DSC_DISABLE};
+    if(0 == (*i_u8IsEnable)){
+        aDSCControl[1] = REG_DP_DSC_DISABLE;
+    }else{
+        aDSCControl[1] = REG_DP_DSC_ENABLE;
+    }
+
+    tWriteMsg.device_addr = PS186_PAGE1;
+    tWriteMsg.flags = I2C_WRITE_FLAG;
+    tWriteMsg.len = 2;
+    tWriteMsg.buf = aDSCControl;
+
+    ret = ps186_i2c_xfer(i_pdev, &tWriteMsg, sizeof(tWriteMsg)/sizeof(struct i2c_msg));
+    if(-1 == ret){
+        goto ERR_RET;
+    }
+
+    if(i_pdev->ops->Delay_ms){
+        i_pdev->ops->Delay_ms(1000);
+    }
+
+    const uint8_t aRunFw[2] = {REG_DP_FW_SET_RUNNING_INDEX, REG_DP_FW_ENABLE};
+    tWriteMsg.device_addr = PS186_PAGE5;
+    tWriteMsg.flags = I2C_WRITE_FLAG;
+    tWriteMsg.len = 2;
+    tWriteMsg.buf = (uint8_t *)aRunFw;
+
+    ret = ps186_i2c_xfer(i_pdev, &tWriteMsg, sizeof(tWriteMsg)/sizeof(struct i2c_msg));
+    if(-1 == ret){
+        goto ERR_RET;
+    }
+
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
+
+    return 0;
+
+ERR_RET:
+#if IS_WITH_OS
+    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+#endif
+    return -1; 
+}
 
 
 
@@ -394,6 +495,11 @@ int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
 
         case PS186_CMD_GET_VERSION:{
             ps186_get_version(i_pdev, arg);
+            break;
+        }
+		
+		case PS186_CMD_SET_DP_DSC:{
+            ps186_set_dpdsc(i_pdev, arg);
             break;
         }
 
