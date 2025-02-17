@@ -20,13 +20,13 @@ extern "C"{
 #define PIN_HIGH            1
 #endif
 
-
-#define PS186_CMD_GET_DP_LINK_STATUS        0x0000
-#define PS186_CMD_GET_DP_LINE_NUMS          0x0001
-#define PS186_CMD_SET_DP_HPD                0x0002
-#define PS186_CMD_SET_DP_DSC                0x0003
-#define PS186_CMD_GET_DP_DSC                0x0004
-#define PS186_CMD_GET_VERSION               0x0005
+#define PS186_CMD_RST                       0x0000
+#define PS186_CMD_GET_DP_LINK_STATUS        0x0001
+#define PS186_CMD_GET_DP_LINE_NUMS          0x0002
+#define PS186_CMD_SET_DP_HPD                0x0003
+#define PS186_CMD_SET_DP_DSC                0x0004
+#define PS186_CMD_GET_DP_DSC                0x0005
+#define PS186_CMD_GET_VERSION               0x0006
 
 struct gpio_param{
     uint32_t gpio_group;

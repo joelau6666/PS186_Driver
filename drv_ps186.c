@@ -97,6 +97,40 @@ out:
     return ret;
 }
 
+static int8_t ps186_set_rst(struct ps186_dev *i_pdev){
+    if(!i_pdev || !i_pdev->info || !i_pdev->ops){
+        return -1;
+    }
+
+#if IS_WITH_OS
+    if(!i_pdev->mutex || !i_pdev->mutex_ops){
+        return -1;
+    }
+    if(i_pdev->mutex_ops->mutex_lock){
+        i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+    }
+#endif
+
+    if(i_pdev->ops->PinWrite){
+        i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.initvalue);
+    }
+
+    if(i_pdev->ops->Delay_ms){
+        i_pdev->ops->Delay_ms(50);
+    }
+
+    if(i_pdev->ops->PinWrite){
+        i_pdev->ops->PinWrite(&i_pdev->info->pinrst, i_pdev->info->pinrst.runvalue);
+    }
+
+#if IS_WITH_OS
+    if(i_pdev->mutex_ops->mutex_unlock){
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+    }
+#endif
+
+    return 0;
+}
 
 static int8_t ps186_get_dp_linkrate(struct ps186_dev *i_pdev, float *o_pLinkRate){
     if(!i_pdev || !i_pdev->info || !i_pdev->ops || !o_pLinkRate){
@@ -560,38 +594,43 @@ int8_t ps186_close(struct ps186_dev *i_pdev){
 
 
 int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
-    if(!i_pdev || !i_pdev->ops){
+    if(!i_pdev || !i_pdev->ops || !i_pdev->isopen){
         return -1;
     }
 
+    int8_t ret = -1;
 
     switch(cmd){
+        case PS186_CMD_RST:{
+            ret = ps186_set_rst(i_pdev);
+            break;
+        }
         case PS186_CMD_GET_DP_LINK_STATUS:{
-            ps186_get_dp_linkrate(i_pdev, arg);
+            ret = ps186_get_dp_linkrate(i_pdev, arg);
             break;
         }
 
         case PS186_CMD_GET_DP_LINE_NUMS:{
-            ps186_get_dp_linenum(i_pdev, arg);
+            ret = ps186_get_dp_linenum(i_pdev, arg);
             break;
         }
 
         case PS186_CMD_SET_DP_HPD:{
-            ps186_set_dphpd(i_pdev, arg);
+            ret = ps186_set_dphpd(i_pdev, arg);
             break;
         }
 
         case PS186_CMD_SET_DP_DSC:{
-        	ps186_set_dpdsc(i_pdev, arg);
+        	ret = ps186_set_dpdsc(i_pdev, arg);
             break;
         }
 
         case PS186_CMD_GET_DP_DSC:{
-            ps186_get_dpdsc(i_pdev, arg);
+            ret = ps186_get_dpdsc(i_pdev, arg);
             break;
         }
         case PS186_CMD_GET_VERSION:{
-            ps186_get_version(i_pdev, arg);
+            ret = ps186_get_version(i_pdev, arg);
             break;
         }
 		
@@ -601,7 +640,7 @@ int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
         }
     }
 
-    return 0;
+    return ret;
 }
 
 
