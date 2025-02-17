@@ -1,6 +1,10 @@
 #ifndef __PS186_H__
 #define __PS186_H__
 
+#ifdef __cplusplus
+extern "C"{
+#endif
+
 #include <stdint.h>
 
 #define PS186_NAME_MAX      16
@@ -21,7 +25,8 @@
 #define PS186_CMD_GET_DP_LINE_NUMS          0x0001
 #define PS186_CMD_SET_DP_HPD                0x0002
 #define PS186_CMD_SET_DP_DSC                0x0003
-#define PS186_CMD_GET_VERSION               0x0004
+#define PS186_CMD_GET_DP_DSC                0x0004
+#define PS186_CMD_GET_VERSION               0x0005
 
 struct gpio_param{
     uint32_t gpio_group;
@@ -70,7 +75,9 @@ struct ps186_dev{
 };
 
 
-
+#ifdef __cplusplus
+}
+#endif
 
 
 

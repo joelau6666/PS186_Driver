@@ -288,7 +288,7 @@ static int8_t ps186_set_dpdsc(struct ps186_dev *i_pdev, uint8_t *i_u8IsEnable){
     }
 
     if(i_pdev->ops->Delay_ms){
-        i_pdev->ops->Delay_ms(1000);
+        i_pdev->ops->Delay_ms(200);
     }
 
     const uint8_t aWriteBuf[2] = {0xFD, 0x70};
@@ -303,7 +303,7 @@ static int8_t ps186_set_dpdsc(struct ps186_dev *i_pdev, uint8_t *i_u8IsEnable){
     }
 
     if(i_pdev->ops->Delay_ms){
-        i_pdev->ops->Delay_ms(1000);
+        i_pdev->ops->Delay_ms(200);
     }
 
 
@@ -325,7 +325,7 @@ static int8_t ps186_set_dpdsc(struct ps186_dev *i_pdev, uint8_t *i_u8IsEnable){
     }
 
     if(i_pdev->ops->Delay_ms){
-        i_pdev->ops->Delay_ms(1000);
+        i_pdev->ops->Delay_ms(200);
     }
 
     const uint8_t aRunFw[2] = {REG_DP_FW_SET_RUNNING_INDEX, REG_DP_FW_ENABLE};
@@ -350,6 +350,94 @@ ERR_RET:
     i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
 #endif
     return -1; 
+}
+
+static int8_t ps186_get_dpdsc(struct ps186_dev *i_pdev, uint8_t *o_u8IsEnable){
+    if(!i_pdev || !o_u8IsEnable){
+        return -1;
+    }
+
+#if IS_WITH_OS
+    if(!i_pdev->mutex || !i_pdev->mutex_ops){
+        return -1;
+    }
+    if(i_pdev->mutex_ops->mutex_lock){
+        i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+    }
+#endif
+    
+    struct i2c_msg tWriteMsg = {0}; 
+    const uint8_t aStopFw[2] = {REG_DP_FW_SET_RUNNING_INDEX, REG_DP_FW_DISABLE};
+    tWriteMsg.device_addr = PS186_PAGE5;
+    tWriteMsg.flags = I2C_WRITE_FLAG;
+    tWriteMsg.len = 2;
+    tWriteMsg.buf = (uint8_t *)aStopFw;
+
+    if(-1 == ps186_i2c_xfer(i_pdev, &tWriteMsg, sizeof(tWriteMsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+
+    if(i_pdev->ops->Delay_ms){
+        i_pdev->ops->Delay_ms(200);
+    }
+
+    const uint8_t aWriteBuf[2] = {0xFD, 0x70};
+    tWriteMsg.device_addr = PS186_PAGE1;
+    tWriteMsg.flags = I2C_WRITE_FLAG;
+    tWriteMsg.len = 2;
+    tWriteMsg.buf = (uint8_t *)aWriteBuf;
+
+    if(-1 == ps186_i2c_xfer(i_pdev, &tWriteMsg, sizeof(tWriteMsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+
+    if(i_pdev->ops->Delay_ms){
+        i_pdev->ops->Delay_ms(200);
+    }
+
+    struct i2c_msg treadmsg[2] = {0};
+
+    const uint8_t u8DscIndex = REG_DP_DSC_CONTROL_INDEX;
+    treadmsg[0].device_addr = PS186_PAGE1;
+    treadmsg[0].flags = I2C_WRITE_FLAG;
+    treadmsg[0].len = 1;
+    treadmsg[0].buf = (uint8_t *)&u8DscIndex;
+
+    treadmsg[1].device_addr = PS186_PAGE1;
+    treadmsg[1].flags = I2C_READ_FLAG;
+    treadmsg[1].len = 1;
+    treadmsg[1].buf = o_u8IsEnable;
+
+    if(-1 == ps186_i2c_xfer(i_pdev, treadmsg, sizeof(treadmsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+
+    const uint8_t aRunFw[2] = {REG_DP_FW_SET_RUNNING_INDEX, REG_DP_FW_ENABLE};
+    tWriteMsg.device_addr = PS186_PAGE5;
+    tWriteMsg.flags = I2C_WRITE_FLAG;
+    tWriteMsg.len = 2;
+    tWriteMsg.buf = (uint8_t *)aRunFw;
+
+    if(-1 == ps186_i2c_xfer(i_pdev, &tWriteMsg, sizeof(tWriteMsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+
+#if IS_WITH_OS
+    if(i_pdev->mutex_ops->mutex_unlock){
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+    }
+#endif
+
+    return 0;
+
+ERR_RET:
+#if IS_WITH_OS
+    if(i_pdev->mutex_ops->mutex_unlock){
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+    }
+#endif
+    return -1;
+}
 }
 
 
@@ -493,15 +581,20 @@ int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
             break;
         }
 
+        case PS186_CMD_SET_DP_DSC:{
+        	ps186_set_dpdsc(i_pdev, arg);
+            break;
+        }
+
+        case PS186_CMD_GET_DP_DSC:{
+            ps186_get_dpdsc(i_pdev, arg);
+            break;
+        }
         case PS186_CMD_GET_VERSION:{
             ps186_get_version(i_pdev, arg);
             break;
         }
 		
-		case PS186_CMD_SET_DP_DSC:{
-            ps186_set_dpdsc(i_pdev, arg);
-            break;
-        }
 
         default:{
             break;
