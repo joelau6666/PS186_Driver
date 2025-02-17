@@ -23,10 +23,11 @@ extern "C"{
 #define PS186_CMD_RST                       0x0000
 #define PS186_CMD_GET_DP_LINK_STATUS        0x0001
 #define PS186_CMD_GET_DP_LINE_NUMS          0x0002
-#define PS186_CMD_SET_DP_HPD                0x0003
-#define PS186_CMD_SET_DP_DSC                0x0004
-#define PS186_CMD_GET_DP_DSC                0x0005
-#define PS186_CMD_GET_VERSION               0x0006
+#define PS186_CMD_GET_DP_VIDEO_INFO         0x0003
+#define PS186_CMD_SET_DP_HPD                0x0004
+#define PS186_CMD_SET_DP_DSC                0x0005
+#define PS186_CMD_GET_DP_DSC                0x0006
+#define PS186_CMD_GET_VERSION               0x0007
 
 struct gpio_param{
     uint32_t gpio_group;
@@ -61,6 +62,11 @@ struct ps186_mutex_ops{
     int8_t (*mutex_unlock)(void *mutex);
 };
 #endif
+
+struct ps186_videoinfo{
+    uint16_t hactive;
+    uint16_t vactive;
+};
 
 struct ps186_dev{
     char name[PS186_NAME_MAX];

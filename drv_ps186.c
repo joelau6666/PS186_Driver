@@ -8,6 +8,10 @@
 
 #define REG_DP_LINK_RATE_INDEX    		0x20
 #define REG_DP_LANE_NUM_INDEX     		0x21
+
+#define REG_DP_VIDEO_INFO_HACTIVE_INDEX 0x1F
+#define REG_DP_VIDEO_INFO_VACTIVE_INDEX 0x25
+
 #define REG_DP_HPD_INDEX          		0xA1
 #define REG_DP_VERSION_INDEX      		0x00
 #define REG_DP_FW_SET_RUNNING_INDEX     0x02
@@ -199,6 +203,76 @@ static int8_t ps186_get_dp_linenum(struct ps186_dev *i_pdev, uint8_t *o_u8LaneNu
     
     
     return 0;
+}
+
+static int8_t ps186_get_dp_video_info(struct ps186_dev *i_pdev, struct ps186_videoinfo *o_pVideoInfo){
+    if(!i_pdev || !o_pVideoInfo){
+        return -1;
+    }
+
+#if IS_WITH_OS
+    if(!i_pdev->mutex || !i_pdev->mutex_ops){
+        return -1;
+    }
+    if(i_pdev->mutex_ops->mutex_lock){
+        i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+    }
+#endif
+
+    const uint8_t u8HActiveIndex = REG_DP_VIDEO_INFO_HACTIVE_INDEX;
+    const uint8_t u8VActiveIndex = REG_DP_VIDEO_INFO_VACTIVE_INDEX;
+    uint8_t u8ReadBuf[2] = {0};
+
+    struct i2c_msg tMsg[2] = {0};
+    tMsg[0].device_addr = PS186_PAGE0;
+    tMsg[0].flags = I2C_WRITE_FLAG;
+    tMsg[0].len = 1;
+    tMsg[0].buf = (uint8_t *)&u8HActiveIndex;
+
+    tMsg[1].device_addr = PS186_PAGE0;
+    tMsg[1].flags = I2C_READ_FLAG;
+    tMsg[1].len = 2;
+    tMsg[1].buf = u8ReadBuf;
+
+    if(-1 == ps186_i2c_xfer(i_pdev, tMsg, sizeof(tMsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+
+    o_pVideoInfo->hactive = (u8ReadBuf[1] << 8) | u8ReadBuf[0];
+
+    tMsg[0].device_addr = PS186_PAGE0;
+    tMsg[0].flags = I2C_WRITE_FLAG;
+    tMsg[0].len = 1;
+    tMsg[0].buf = (uint8_t *)&u8VActiveIndex;
+
+    tMsg[1].device_addr = PS186_PAGE0;
+    tMsg[1].flags = I2C_READ_FLAG;
+    tMsg[1].len = 2;
+    tMsg[1].buf = u8ReadBuf;
+
+    if(-1 == ps186_i2c_xfer(i_pdev, tMsg, sizeof(tMsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+
+    o_pVideoInfo->vactive = (u8ReadBuf[1] << 8) | u8ReadBuf[0];
+
+
+#if IS_WITH_OS
+    if(i_pdev->mutex_ops->mutex_unlock){
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+    }
+#endif
+
+    return 0;
+
+ERR_RET:
+#if IS_WITH_OS
+    if(i_pdev->mutex_ops->mutex_unlock){
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+    }
+#endif
+
+    return -1;
 }
 
 static int8_t ps186_set_dphpd(struct ps186_dev *i_pdev, uint8_t *i_u8Hpd){
@@ -612,6 +686,11 @@ int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
 
         case PS186_CMD_GET_DP_LINE_NUMS:{
             ret = ps186_get_dp_linenum(i_pdev, arg);
+            break;
+        }
+
+        case PS186_CMD_GET_DP_VIDEO_INFO:{
+            ret = ps186_get_dp_video_info(i_pdev, arg);
             break;
         }
 
