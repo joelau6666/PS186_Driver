@@ -1,4 +1,5 @@
-#include "dev_ps186.h"
+#include "drv_ps186.h"
+#include "ps186_info.h"
 #include <stdio.h>
 #include <string.h>
 
@@ -6,8 +7,6 @@
 #define I2C_READ_FLAG    0x0001
 
 
-#define REG_DP_LINK_RATE_INDEX    		0x20
-#define REG_DP_LANE_NUM_INDEX     		0x21
 
 #define REG_DP_VIDEO_INFO_HACTIVE_INDEX 0x1F
 #define REG_DP_VIDEO_INFO_VACTIVE_INDEX 0x25
@@ -41,7 +40,11 @@ enum PS186_PAGE{
     PS186_PAGE7 = 0x0F,
 };
 
-
+enum PS186_PAGE1_REG{
+    PS186_PAGE1_REG_DP_LINK_RATE        = 0x20,
+    PS186_PAGE1_REG_DP_LANE_NUM         = 0x21,
+    PS186_PAGE1_REG_DP_VIDEO_STABLE     = 0x32,
+};
 
 
 
@@ -136,76 +139,99 @@ static int8_t ps186_set_rst(struct ps186_dev *i_pdev){
     return 0;
 }
 
-static int8_t ps186_get_dp_linkrate(struct ps186_dev *i_pdev, float *o_pLinkRate){
-    if(!i_pdev || !i_pdev->info || !i_pdev->ops || !o_pLinkRate){
+static int8_t ps186_get_dp_linkstatus(struct ps186_dev *i_pdev, struct ps186_link_status *o_pLinkStatus){
+    if(!i_pdev || !o_pLinkStatus){
         return -1;
     }
 
 #if IS_WITH_OS
-    i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+    if(!i_pdev->mutex || !i_pdev->mutex_ops){
+        return -1;
+    }
+    if(i_pdev->mutex_ops->mutex_lock){
+        i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
+    }
 #endif
 
-    const uint8_t u8LinkRateIndex = REG_DP_LINK_RATE_INDEX;
-    uint8_t u8ReadBuf = 0;
+    const uint8_t u8VideoStableReg = PS186_PAGE1_REG_DP_VIDEO_STABLE;
+    const uint8_t u8LaneNumReg = PS186_PAGE1_REG_DP_LANE_NUM;
+    const uint8_t u8LinkRateReg = PS186_PAGE1_REG_DP_LINK_RATE;
 
+    uint8_t u8ReadBuf = 0;
     struct i2c_msg tmsg[2] = {0};
+
+
+    /* Video stable */
     tmsg[0].device_addr = PS186_PAGE1;
     tmsg[0].flags = I2C_WRITE_FLAG;
     tmsg[0].len = 1;
-    tmsg[0].buf = (uint8_t *)&u8LinkRateIndex;
+    tmsg[0].buf = (uint8_t *)&u8VideoStableReg;
 
     tmsg[1].device_addr = PS186_PAGE1;
     tmsg[1].flags = I2C_READ_FLAG;
     tmsg[1].len = 1;
     tmsg[1].buf = &u8ReadBuf;
 
-    ps186_i2c_xfer(i_pdev, tmsg, sizeof(tmsg)/sizeof(struct i2c_msg));
-
-    *o_pLinkRate = u8ReadBuf * 0.27;
-
-#if IS_WITH_OS
-    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
-#endif
-
-
-    return 0;
-}
-
-static int8_t ps186_get_dp_linenum(struct ps186_dev *i_pdev, uint8_t *o_u8LaneNums){
-    if(!i_pdev || !i_pdev->info || !i_pdev->ops || !o_u8LaneNums){
-        return -1;
+    if(-1 == ps186_i2c_xfer(i_pdev, tmsg, sizeof(tmsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+    if(0x77 == u8ReadBuf){
+        o_pLinkStatus->videostable = 1;
+    }else{
+        o_pLinkStatus->videostable = 0;
     }
 
-#if IS_WITH_OS
-    i_pdev->mutex_ops->mutex_lock(i_pdev->mutex);
-#endif
-
-    const uint8_t u8LaneNumIndex = REG_DP_LANE_NUM_INDEX;
-    uint8_t u8ReadBuf = 0;
-
-    struct i2c_msg tmsg[2] = {0};
+    /* lane num */
     tmsg[0].device_addr = PS186_PAGE1;
     tmsg[0].flags = I2C_WRITE_FLAG;
     tmsg[0].len = 1;
-    tmsg[0].buf = (uint8_t *)&u8LaneNumIndex;
+    tmsg[0].buf = (uint8_t *)&u8LaneNumReg;
 
     tmsg[1].device_addr = PS186_PAGE1;
     tmsg[1].flags = I2C_READ_FLAG;
     tmsg[1].len = 1;
     tmsg[1].buf = &u8ReadBuf;
 
-    ps186_i2c_xfer(i_pdev, tmsg, sizeof(tmsg)/sizeof(struct i2c_msg));
-    *o_u8LaneNums = u8ReadBuf & 0x0F;
+    if(-1 == ps186_i2c_xfer(i_pdev, tmsg, sizeof(tmsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+    o_pLinkStatus->lanecount = u8ReadBuf & 0x0F;
+
+
+    /* link rate */
+    tmsg[0].device_addr = PS186_PAGE1;
+    tmsg[0].flags = I2C_WRITE_FLAG;
+    tmsg[0].len = 1;
+    tmsg[0].buf = (uint8_t *)&u8LinkRateReg;
+
+    tmsg[1].device_addr = PS186_PAGE1;
+    tmsg[1].flags = I2C_READ_FLAG;
+    tmsg[1].len = 1;
+    tmsg[1].buf = &u8ReadBuf;
+
+    if(-1 == ps186_i2c_xfer(i_pdev, tmsg, sizeof(tmsg)/sizeof(struct i2c_msg))){
+        goto ERR_RET;
+    }
+
+    o_pLinkStatus->linkrate = u8ReadBuf * 0.27;
 
 #if IS_WITH_OS
-    i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+    if(i_pdev->mutex_ops->mutex_unlock){
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+    }
 #endif
-    
-    
     return 0;
+
+ERR_RET:
+#if IS_WITH_OS
+    if(i_pdev->mutex_ops->mutex_unlock){
+        i_pdev->mutex_ops->mutex_unlock(i_pdev->mutex);
+    }
+#endif
+    return -1;
 }
 
-static int8_t ps186_get_dp_video_info(struct ps186_dev *i_pdev, struct ps186_videoinfo *o_pVideoInfo){
+static int8_t ps186_get_dp_video_info(struct ps186_dev *i_pdev, struct ps186_video_info *o_pVideoInfo){
     if(!i_pdev || !o_pVideoInfo){
         return -1;
     }
@@ -546,7 +572,7 @@ ERR_RET:
 #endif
     return -1;
 }
-}
+
 
 
 
@@ -557,9 +583,9 @@ static int8_t ps186_init(struct ps186_dev *i_pdev){
     }
 
     /* PinMode Output */
-    if(i_pdev->ops->PinModeOut){
-        i_pdev->ops->PinModeOut(&i_pdev->info->pinrst);
-        i_pdev->ops->PinModeOut(&i_pdev->info->pinlanemode);
+    if(i_pdev->ops->PinMode){
+        i_pdev->ops->PinMode(&i_pdev->info->pinrst, DP_PIN_MODE_OUTPUT);
+        i_pdev->ops->PinMode(&i_pdev->info->pinlanemode, DP_PIN_MODE_OUTPUT);
     }
 
     /* Init PinValue */
@@ -680,19 +706,16 @@ int8_t ps186_control(struct ps186_dev *i_pdev, uint16_t cmd, void *arg){
             break;
         }
         case PS186_CMD_GET_DP_LINK_STATUS:{
-            ret = ps186_get_dp_linkrate(i_pdev, arg);
+            ret = ps186_get_dp_linkstatus(i_pdev, arg);
             break;
         }
-
-        case PS186_CMD_GET_DP_LINE_NUMS:{
-            ret = ps186_get_dp_linenum(i_pdev, arg);
-            break;
-        }
+        
 
         case PS186_CMD_GET_DP_VIDEO_INFO:{
             ret = ps186_get_dp_video_info(i_pdev, arg);
             break;
         }
+
 
         case PS186_CMD_SET_DP_HPD:{
             ret = ps186_set_dphpd(i_pdev, arg);
